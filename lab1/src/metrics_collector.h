@@ -1,13 +1,14 @@
 #pragma once
 
-#include <cstdlib>
+#include <array>
 #include <cstdint>
+#include <cstdlib>
 
 constexpr size_t kNumBuckets = 256;
 constexpr uint64_t kBucketSpanMs = 4;
 
 struct Snapshot {
-  uint64_t buckets[kNumBuckets];
+  std::array<uint64_t, kNumBuckets> buckets;
   uint64_t count;
   uint64_t sum;
   uint64_t min;
