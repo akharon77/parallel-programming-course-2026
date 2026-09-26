@@ -69,7 +69,7 @@ double MeasurePoint(MetricsCollector *collector,
         RunBenchmark(collector, values, num_threads, kMeasureSeconds));
   }
 
-  std::cout << "Count: " << collector->GetSnapshot().count << "\n";
+  // std::cout << "Count: " << collector->GetSnapshot().count << "\n";
 
   std::sort(results.begin(), results.end());
   return results[results.size() / 2];
