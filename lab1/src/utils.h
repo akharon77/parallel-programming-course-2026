@@ -5,6 +5,9 @@
 #include <array>
 #include <cstdint>
 
+static constexpr double p50 = 0.50;
+static constexpr double p99 = 0.99;
+
 uint64_t ComputePercentile(uint64_t count,
                            const std::array<uint64_t, kNumBuckets> &buckets,
                            double percentile);
