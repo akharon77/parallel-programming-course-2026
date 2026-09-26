@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <iostream>
 #include <latch>
 #include <thread>
 
