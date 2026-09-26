@@ -72,5 +72,5 @@ double MeasurePoint(MetricsCollector *collector,
   // std::cout << "Count: " << collector->GetSnapshot().count << "\n";
 
   std::sort(results.begin(), results.end());
-  return results[results.size() / 2];
+  return results[results.size() / 2] * kMeasureCoeff;
 }
