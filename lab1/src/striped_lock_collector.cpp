@@ -2,7 +2,7 @@
 #include "utils.h"
 
 void StripedLockCollector::Record(uint64_t value) {
-  uint64_t bucket_num = std::min(value / kBucketSpanMs, kNumBuckets);
+  uint64_t bucket_num = std::min(value / kBucketSpanMs, kNumBuckets - 1);
 
   {
     size_t shard_num = bucket_num % kNumShards;
