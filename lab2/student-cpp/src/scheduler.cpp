@@ -5,6 +5,7 @@
 #include "scheduler.hpp"
 #include "sched_mutex.hpp"
 
+#include <cassert>
 #include <sstream>
 
 namespace sched {
@@ -13,6 +14,8 @@ static thread_local TlsStorage tls_storage;
 
 Scheduler *Scheduler::get_scheduler() { return tls_storage.scheduler; }
 char Scheduler::get_thread_id() { return tls_storage.thread_id; }
+
+struct Abort {};
 
 Scheduler::~Scheduler() {
   for (auto &thread_state : threads_) {
@@ -46,7 +49,10 @@ void Scheduler::run(Strategy &strategy) {
       // На shared поток добавит 1 в семафор планировщика, разбудит его,
       // а сам заснет на своем семафоре, пока его не разбудит планировщик.
       //
-      threads_[i]->body();
+      try {
+        threads_[i]->body();
+      } catch (const Abort &) {
+      }
 
       //
       // Поток завершается, мы должны вернутьс в планировщик.
@@ -65,7 +71,7 @@ void Scheduler::run(Strategy &strategy) {
   int last = -1;
   while (true) {
     std::vector<int> enabled;
-    int alive = 0;
+    size_t alive = 0;
 
     for (int i = 0; i < n; ++i) {
       ThreadState &thread_state = *threads_[i];
@@ -75,6 +81,17 @@ void Scheduler::run(Strategy &strategy) {
 
       alive++;
 
+      //
+      // Спим на занятом мьютексе, поэтому пропускаем этот раунд.
+      //
+      if (thread_state.wait_mutex != nullptr &&
+          thread_state.wait_mutex->getOwner() != '\0') {
+        continue;
+      }
+
+      //
+      // Спим на ожидании условия.
+      //
       if (thread_state.cond != nullptr && !thread_state.cond()) {
         continue;
       }
@@ -83,6 +100,24 @@ void Scheduler::run(Strategy &strategy) {
     }
 
     if (alive == 0) {
+      break;
+    }
+
+    assert(alive > 0);
+    if (enabled.empty()) {
+      deadlock = makeHeldString();
+      aborted_ = true;
+      for (size_t index = 0; index < n; ++index) {
+        if (!threads_[index]->finished) {
+          //
+          // Аналогично остальным комментариям про пинг-понг между потоками.
+          // Запустили поток, уснули планировщиком сами, потом поток нас
+          // разбудит при завершении.
+          //
+          threads_[index]->semaphore.release();
+          sched_semaphore_.acquire();
+        }
+      }
       break;
     }
 
@@ -106,6 +141,24 @@ void Scheduler::run(Strategy &strategy) {
       t->thread.join();
     }
   }
+}
+
+std::string Scheduler::makeHeldString() const {
+  std::stringstream held_ss;
+  held_ss << "held={";
+
+  for (size_t index = 0; index < mutexes_.size(); ++index) {
+    sched_mutex *mutex = mutexes_[index];
+
+    held_ss << mutex->name << ":" << mutex->getOwner();
+    if (index != mutexes_.size() - 1) {
+      held_ss << ", ";
+    }
+  }
+
+  held_ss << "}";
+
+  return held_ss.str();
 }
 
 std::string Scheduler::trace_string() const { return trace_; }
@@ -143,15 +196,20 @@ void await(std::function<bool()> cond) {
 }
 
 void Scheduler::record(const std::string &str) {
-  std::stringstream ss;
-  ss << get_thread_id() << " " << str;
-  log.push_back(ss.str());
+  if (logging && !aborted_) {
+    std::stringstream ss;
+    ss << get_thread_id() << " " << str;
+    log.push_back(ss.str());
+  }
 }
 
 void Scheduler::yield_to_sched() {
   ThreadState &current_state = get_current_thread_state();
   sched_semaphore_.release();
   current_state.semaphore.acquire();
+  if (aborted_) {
+    throw Abort();
+  }
 }
 
 void Scheduler::pause() {
@@ -160,6 +218,10 @@ void Scheduler::pause() {
     current_state.touched = false;
     yield_to_sched();
   }
+}
+
+void Scheduler::register_mutex(sched_mutex *mutex) {
+  mutexes_.push_back(mutex);
 }
 
 } // namespace sched

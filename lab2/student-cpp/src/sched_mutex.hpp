@@ -3,7 +3,6 @@
 // попадает в enabled; обычный std::mutex здесь нельзя — поток уснёт с ходом в
 // руках и всё зависнет. Лог: "lock <имя>", "unlock <имя>". Планировщик должен
 // знать все локи, чтобы печатать held={a:A, b:B}.
-#include <stdexcept>
 #include <string>
 
 #include "scheduler.hpp"
@@ -41,13 +40,20 @@ public:
 
   // Пауза; освободить лок, ждавшие потоки снова могут быть выбраны.
   void unlock() {
+    if (scheduler_.is_aborted()) {
+      return;
+    }
+
     scheduler_.pause();
+
     owner_ = '\0';
     scheduler_.get_current_thread_state().touched = true;
     scheduler_.record("unlock " + name);
   }
 
   const std::string name;
+
+  char getOwner() { return owner_; }
 
 private:
   Scheduler &scheduler_;

@@ -74,11 +74,16 @@ public:
     return *threads_[get_thread_id() - 'A'];
   };
 
+  bool is_aborted() const { return aborted_; }
+
 private:
+  std::string makeHeldString() const;
+
   std::string trace_;
   std::vector<std::unique_ptr<ThreadState>> threads_;
   std::binary_semaphore sched_semaphore_{0};
-  std::vector<sched_mutex> mutexes_;
+  std::vector<sched_mutex *> mutexes_;
+  bool aborted_ = false;
 };
 
 // window() из тестовых программ: пауза перед следующей операцией с общими
