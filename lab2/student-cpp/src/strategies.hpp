@@ -49,16 +49,56 @@ struct RandomPick : Strategy {
 // прошлого и берёт следующий вариант. bound — максимум вытеснений (этап 5); для
 // dfs runner передаёт INT_MAX.
 struct Dfs : Strategy {
-  explicit Dfs(int) {}
+  explicit Dfs(int bound) : bound(bound) {}
   // Подготовиться к новому прогону (позиция в пути, счётчик вытеснений).
-  void begin_run() override {}
-  int pick(const std::vector<int> &, int) override {
-    throw std::logic_error("TODO этап 4: Dfs::pick");
+  void begin_run() override { step = 0; }
+
+  int pick(const std::vector<int> &enabled, int last) override {
+    if (step < stack.size()) {
+      Node &step_node = stack[step++];
+      return step_node.options[step_node.choice_idx];
+    }
+
+    Node node;
+    node.options = enabled;
+    node.choice_idx = 0;
+
+    int result = node.options[node.choice_idx];
+    stack.push_back(node);
+    step++;
+    return result;
   }
+
   // Выбрать следующий путь; false — дерево обойдено.
   bool end_run() override {
-    throw std::logic_error("TODO этап 4: Dfs::end_run");
+    //
+    // Потому что мог быть дедлок.
+    //
+    if (step < stack.size()) {
+      stack.resize(step);
+    }
+
+    while (!stack.empty()) {
+      Node &top = stack.back();
+      if (top.choice_idx + 1 < top.options.size()) {
+        ++top.choice_idx;
+        return true;
+      }
+
+      stack.pop_back();
+    }
+
+    return false;
   }
+
+  struct Node {
+    std::vector<int> options;
+    size_t choice_idx;
+  };
+
+  int bound;
+  std::vector<Node> stack;
+  size_t step;
 };
 
 } // namespace sched
