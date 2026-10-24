@@ -3,6 +3,7 @@
 // FirstAlive — этап 1, Replay — этап 2, RandomPick — этап 3, Dfs — этап 4
 // (ограничение bound — этап 5). enabled — номера потоков, которые могут сделать
 // шаг, по возрастанию; last — прошлый выбранный (-1 в начале).
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <random>
@@ -51,19 +52,44 @@ struct RandomPick : Strategy {
 struct Dfs : Strategy {
   explicit Dfs(int bound) : bound(bound) {}
   // Подготовиться к новому прогону (позиция в пути, счётчик вытеснений).
-  void begin_run() override { step = 0; }
+  void begin_run() override {
+    step = 0;
+    preemptions = 0;
+  }
 
   int pick(const std::vector<int> &enabled, int last) override {
+    bool last_in_enabled =
+        (std::find(enabled.begin(), enabled.end(), last) != enabled.end());
+
     if (step < stack.size()) {
       Node &step_node = stack[step++];
-      return step_node.options[step_node.choice_idx];
+      int result = step_node.options[step_node.choice_idx];
+
+      if (last_in_enabled && result != last) {
+        ++preemptions;
+      }
+
+      return result;
     }
 
     Node node;
-    node.options = enabled;
+
+    for (int thread_id : enabled) {
+      if (last_in_enabled && thread_id != last && preemptions >= bound) {
+        continue;
+      }
+
+      node.options.push_back(thread_id);
+    }
+
     node.choice_idx = 0;
 
     int result = node.options[node.choice_idx];
+
+    if (last_in_enabled && result != last) {
+      ++preemptions;
+    }
+
     stack.push_back(node);
     step++;
     return result;
@@ -97,6 +123,7 @@ struct Dfs : Strategy {
   };
 
   int bound;
+  size_t preemptions;
   std::vector<Node> stack;
   size_t step;
 };
