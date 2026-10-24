@@ -4,6 +4,7 @@
 // (ограничение bound — этап 5). enabled — номера потоков, которые могут сделать
 // шаг, по возрастанию; last — прошлый выбранный (-1 в начале).
 #include <cstdint>
+#include <iterator>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -36,10 +37,12 @@ struct Replay : Strategy {
 
 // Случайный поток: enabled[rnd() % enabled.size()], rnd — std::mt19937(seed).
 struct RandomPick : Strategy {
-  explicit RandomPick(uint32_t) {}
-  int pick(const std::vector<int> &, int) override {
-    throw std::logic_error("TODO этап 3: RandomPick::pick");
+  explicit RandomPick(uint32_t seed) : rand(seed) {}
+  int pick(const std::vector<int> &enabled, int last) override {
+    return enabled[rand() % enabled.size()];
   }
+
+  std::mt19937 rand;
 };
 
 // Stateless DFS по дереву выборов: каждый прогон с нуля, повторяет префикс
