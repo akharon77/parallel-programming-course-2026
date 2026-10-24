@@ -14,18 +14,44 @@ class sched_mutex {
 public:
   // Создаётся в setup() тестовой программы; зарегистрируйте лок в планировщике
   // s.
-  sched_mutex(Scheduler &s, std::string name) : name(std::move(name)) {
-    (void)s;
+  sched_mutex(Scheduler &s, std::string name)
+      : scheduler_(s), name(std::move(name)), owner_('\0') {
+    s.register_mutex(this);
   }
+
   sched_mutex(const sched_mutex &) = delete;
 
   // Пауза; если лок занят — ждать, не участвуя в выборе; затем стать
   // владельцем.
-  void lock() { throw std::logic_error("TODO этап 2: sched_mutex::lock"); }
+  void lock() {
+    auto &thread_state = scheduler_.get_current_thread_state();
+
+    scheduler_.pause();
+
+    while (owner_ != '\0') {
+      thread_state.wait_mutex = this;
+      scheduler_.yield_to_sched();
+      thread_state.wait_mutex = nullptr;
+    }
+
+    owner_ = thread_state.id;
+    thread_state.touched = true;
+    scheduler_.record("lock " + name);
+  }
+
   // Пауза; освободить лок, ждавшие потоки снова могут быть выбраны.
-  void unlock() { throw std::logic_error("TODO этап 2: sched_mutex::unlock"); }
+  void unlock() {
+    scheduler_.pause();
+    owner_ = '\0';
+    scheduler_.get_current_thread_state().touched = true;
+    scheduler_.record("unlock " + name);
+  }
 
   const std::string name;
+
+private:
+  Scheduler &scheduler_;
+  char owner_;
 };
 
 // RAII: lock сейчас, unlock на закрывающей скобке. Выдан готовым.

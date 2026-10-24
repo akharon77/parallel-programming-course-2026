@@ -15,6 +15,8 @@
 
 namespace sched {
 
+class sched_mutex;
+
 class Scheduler {
 public:
   static Scheduler *get_scheduler();
@@ -44,6 +46,7 @@ public:
   void record(const std::string &str);
   void pause();
   void yield_to_sched();
+  void register_mutex(sched_mutex *mutex);
 
   struct ThreadState {
     char id;
@@ -63,6 +66,8 @@ public:
     //
     bool touched = true;
     std::function<bool()> cond = nullptr;
+
+    sched_mutex *wait_mutex = nullptr;
   };
 
   ThreadState &get_current_thread_state() {
@@ -73,6 +78,7 @@ private:
   std::string trace_;
   std::vector<std::unique_ptr<ThreadState>> threads_;
   std::binary_semaphore sched_semaphore_{0};
+  std::vector<sched_mutex> mutexes_;
 };
 
 // window() из тестовых программ: пауза перед следующей операцией с общими
