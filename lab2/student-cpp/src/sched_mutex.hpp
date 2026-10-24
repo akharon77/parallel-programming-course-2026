@@ -25,12 +25,19 @@ public:
   void lock() {
     auto &thread_state = scheduler_.get_current_thread_state();
 
-    scheduler_.pause();
-
-    while (owner_ != '\0') {
-      thread_state.wait_mutex = this;
-      scheduler_.yield_to_sched();
-      thread_state.wait_mutex = nullptr;
+    //
+    // Нельзя просто (взять и) написать паузу + цикл ожидания разблокировки,
+    // так как в таком случае поток может на паузе передать управление
+    // планировщику без выставленного wait_mutex, из-за чего добавит его в enabled_,
+    // хотя не должен был бы.
+    //
+    if (thread_state.touched || owner_ != '\0') {
+      do {
+        thread_state.touched = false;
+        thread_state.wait_mutex = this;
+        scheduler_.yield_to_sched();
+        thread_state.wait_mutex = nullptr;
+      } while (owner_ != '\0');
     }
 
     owner_ = thread_state.id;
