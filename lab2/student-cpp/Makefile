@@ -1,16 +1,19 @@
 all: lab2 lab2_tsan stress ministress
 
-lab2:
-	g++ -O2 -std=c++20 -pthread src/*.cpp -o lab2
+SRC=$(wildcard src/*.cpp)
+HDRS=$(wildcard src/*.hpp)
 
-lab2_tsan:
-	clang++ -fsanitize=thread -g -O1 -std=c++20 -pthread src/*.cpp -o lab2_tsan
+lab2: $(SRC) $(HDRS)
+	g++ -O2 -std=c++20 -pthread $(SRC) -o lab2
 
-stress:
-	g++ -O2 -std=c++20 -pthread extra/stress.cpp -o stress
+lab2_tsan: $(SRC) $(HDRS)
+	clang++ -fsanitize=thread -g -O1 -std=c++20 -pthread $(SRC) -o lab2_tsan
 
-ministress:
-	g++ -O2 -std=c++20 -pthread extra/ministress.cpp -o ministress
+stress: extra/stress.cpp
+	g++ -O2 -std=c++20 -pthread $^ -o stress
+
+ministress: extra/ministress.cpp
+	g++ -O2 -std=c++20 -pthread $^ -o ministress
 
 clean:
 	rm lab2 lab2_tsan stress ministress
